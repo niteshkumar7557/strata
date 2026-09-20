@@ -17,17 +17,20 @@
  *
  * Common flags:
  *   --top <N>            — number of results to show (default: 10)
- *   --format <table|json> — output format (default: table)
+ *   --format <table|json|html> — output format (default: table)
  *   --since <date>       — only analyse commits after this date
  *   --until <date>       — only analyse commits before this date
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { isGitRepo, collectCommits, getFileSizes } from './collector.js';
 import { analyseHotspots } from './metrics/hotspot.js';
 import { analyseContributors } from './metrics/contributor.js';
 import { printHotspotTable, printContributorTable, printJSON } from './reporters/table.js';
+import { generateHotspotHTML, generateContributorHTML } from './reporters/html.js';
 
 // ──────────────────────────────────────────────
 // Program setup
@@ -54,7 +57,7 @@ program
 function addCommonOptions(cmd) {
   return cmd
     .option('-n, --top <number>', 'number of results to display', '10')
-    .option('-f, --format <type>', 'output format: table or json', 'table')
+    .option('-f, --format <type>', 'output format: table, json, or html', 'table')
     .option('--since <date>', 'analyse commits after this date (e.g. 2025-01-01)')
     .option('--until <date>', 'analyse commits before this date');
 }
@@ -110,9 +113,14 @@ hotspotCmd.action(async (repoPath, opts) => {
       top: parseInt(opts.top, 10),
     });
 
-    // Step 5: Present the results.
+    // Step 5: Present the results in the chosen format.
     if (opts.format === 'json') {
       printJSON(results);
+    } else if (opts.format === 'html') {
+      const html = generateHotspotHTML(results, repoPath);
+      const outPath = resolve('strata-hotspot-report.html');
+      await writeFile(outPath, html);
+      console.log(chalk.green(`\n  ✔ Report saved to ${outPath}\n`));
     } else {
       printHotspotTable(results);
     }
@@ -154,9 +162,14 @@ contributorCmd.action(async (repoPath, opts) => {
       top: parseInt(opts.top, 10),
     });
 
-    // Step 4: Present the results.
+    // Step 4: Present the results in the chosen format.
     if (opts.format === 'json') {
       printJSON(results);
+    } else if (opts.format === 'html') {
+      const html = generateContributorHTML(results, repoPath);
+      const outPath = resolve('strata-contributor-report.html');
+      await writeFile(outPath, html);
+      console.log(chalk.green(`\n  ✔ Report saved to ${outPath}\n`));
     } else {
       printContributorTable(results);
     }
