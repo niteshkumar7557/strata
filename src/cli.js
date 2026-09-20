@@ -84,6 +84,36 @@ async function validateRepo(repoPath) {
   }
 }
 
+/**
+ * Validate and parse the shared CLI options.
+ * Exits with code 1 if --format or --top have invalid values.
+ *
+ * @param {object} opts — raw options object from commander.
+ * @returns {{ top: number, format: string }} Validated and parsed options.
+ */
+function validateOptions(opts) {
+  // Validate --format: must be one of the supported output types.
+  const validFormats = ['table', 'json', 'html'];
+  if (!validFormats.includes(opts.format)) {
+    console.error(
+      chalk.red(`\n  ✖ Unknown format "${opts.format}".\n`) +
+      chalk.dim(`    Supported formats: ${validFormats.join(', ')}\n`),
+    );
+    process.exit(1);
+  }
+
+  // Validate --top: must be a positive integer.
+  const top = parseInt(opts.top, 10);
+  if (Number.isNaN(top) || top < 1) {
+    console.error(
+      chalk.red(`\n  ✖ --top must be a positive number, got "${opts.top}".\n`),
+    );
+    process.exit(1);
+  }
+
+  return { top, format: opts.format };
+}
+
 // ──────────────────────────────────────────────
 // Subcommand: hotspot
 // ──────────────────────────────────────────────
@@ -96,8 +126,9 @@ addCommonOptions(hotspotCmd);
 
 hotspotCmd.action(async (repoPath, opts) => {
   try {
-    // Step 1: Validate the repo path.
+    // Step 1: Validate inputs.
     await validateRepo(repoPath);
+    const { top, format } = validateOptions(opts);
 
     // Step 2: Collect commit history from Git.
     const commits = await collectCommits(repoPath, {
@@ -109,14 +140,12 @@ hotspotCmd.action(async (repoPath, opts) => {
     const fileSizes = await getFileSizes(repoPath);
 
     // Step 4: Run the hotspot analysis.
-    const results = analyseHotspots(commits, fileSizes, {
-      top: parseInt(opts.top, 10),
-    });
+    const results = analyseHotspots(commits, fileSizes, { top });
 
     // Step 5: Present the results in the chosen format.
-    if (opts.format === 'json') {
+    if (format === 'json') {
       printJSON(results);
-    } else if (opts.format === 'html') {
+    } else if (format === 'html') {
       const html = generateHotspotHTML(results, repoPath);
       const outPath = resolve('strata-hotspot-report.html');
       await writeFile(outPath, html);
@@ -147,8 +176,9 @@ contributorCmd
 
 contributorCmd.action(async (repoPath, opts) => {
   try {
-    // Step 1: Validate the repo path.
+    // Step 1: Validate inputs.
     await validateRepo(repoPath);
+    const { top, format } = validateOptions(opts);
 
     // Step 2: Collect commit history from Git.
     const commits = await collectCommits(repoPath, {
@@ -159,13 +189,13 @@ contributorCmd.action(async (repoPath, opts) => {
     // Step 3: Run the contributor-risk analysis.
     const results = analyseContributors(commits, {
       threshold: parseFloat(opts.threshold),
-      top: parseInt(opts.top, 10),
+      top,
     });
 
     // Step 4: Present the results in the chosen format.
-    if (opts.format === 'json') {
+    if (format === 'json') {
       printJSON(results);
-    } else if (opts.format === 'html') {
+    } else if (format === 'html') {
       const html = generateContributorHTML(results, repoPath);
       const outPath = resolve('strata-contributor-report.html');
       await writeFile(outPath, html);

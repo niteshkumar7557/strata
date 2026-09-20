@@ -26,6 +26,7 @@ src/
     contributor.js  # bus-factor / contributor-risk analysis
   reporters/
     table.js        # chalk + cli-table3 terminal reporter
+    html.js         # self-contained HTML report generator
 ```
 
 - **Collector** returns a uniform `commits[]` array.

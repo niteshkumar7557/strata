@@ -122,8 +122,15 @@ export function parseGitLog(raw) {
 		const lines = chunk.split("\n").filter((line) => line.trim());
 
 		// --- Parse the header line (first non-empty line) ---
+		// We split with a limit: hash is before the first `|`, date is after
+		// the last `|`, and everything in between is the author name (which
+		// could theoretically contain `|` characters).
 		const headerLine = lines[0];
-		const [hash, author, date] = headerLine.split("|");
+		const firstPipe = headerLine.indexOf('|');
+		const lastPipe = headerLine.lastIndexOf('|');
+		const hash = headerLine.slice(0, firstPipe);
+		const author = headerLine.slice(firstPipe + 1, lastPipe);
+		const date = headerLine.slice(lastPipe + 1);
 
 		// --- Parse the numstat file lines (everything after the header) ---
 		const files = [];
@@ -223,22 +230,30 @@ export async function getFileSizes(repoPath) {
 	 * We count lines by splitting on newlines. Errors (binary files,
 	 * submodules, etc.) are silently caught — the file simply won't
 	 * appear in the sizes map.
+	 *
+	 * Files are processed in batches to avoid spawning hundreds of
+	 * git processes simultaneously on large repositories.
 	 */
-	const promises = filePaths.map(async (filePath) => {
-		try {
-			const content = await runGit(
-				["show", `HEAD:${filePath}`],
-				absolutePath,
-			);
-			// Count lines: split by newline and subtract the trailing empty element.
-			const lineCount = content.split("\n").length;
-			sizes[filePath] = lineCount;
-		} catch {
-			// Binary or unreadable file — skip silently.
-		}
-	});
+	const BATCH_SIZE = 20;
 
-	await Promise.all(promises);
+	for (let i = 0; i < filePaths.length; i += BATCH_SIZE) {
+		const batch = filePaths.slice(i, i + BATCH_SIZE);
+		const promises = batch.map(async (filePath) => {
+			try {
+				const content = await runGit(
+					["show", `HEAD:${filePath}`],
+					absolutePath,
+				);
+				// Count lines: split by newline, length gives approximate line count.
+				const lineCount = content.split("\n").length;
+				sizes[filePath] = lineCount;
+			} catch {
+				// Binary or unreadable file — skip silently.
+			}
+		});
+		await Promise.all(promises);
+	}
+
 	return sizes;
 }
 

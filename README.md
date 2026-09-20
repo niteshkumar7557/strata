@@ -18,7 +18,7 @@ That information already exists in your Git history. Strata makes it accessible 
 | `strata hotspot` | Files that are both **large** and **frequently changed** — highest defect risk |
 | `strata contributor` | Files where **one author owns ≥ 80%** of all changes — bus-factor risk |
 
-Both commands support **colour-coded terminal tables** and **JSON output** for piping into other tools.
+**Output formats:** colour-coded terminal tables, JSON (pipe-friendly), and self-contained HTML reports.
 
 ## Installation
 
@@ -44,19 +44,23 @@ Find files with the highest churn × size score:
 
 ```bash
 # Run against current directory
-node src/cli.js hotspot .
+strata hotspot .
 
 # Run against any repo
-node src/cli.js hotspot /path/to/repo
+strata hotspot /path/to/repo
 
 # Show top 5 results only
-node src/cli.js hotspot . --top 5
+strata hotspot . --top 5
 
 # Filter by date range
-node src/cli.js hotspot . --since 2025-01-01 --until 2025-06-30
+strata hotspot . --since 2025-01-01 --until 2025-06-30
 
 # JSON output (pipe-friendly)
-node src/cli.js hotspot . --format json
+strata hotspot . --format json
+
+# Self-contained HTML report
+strata hotspot . --format html
+# → saves strata-hotspot-report.html in the current directory
 ```
 
 **How scoring works:**
@@ -73,13 +77,16 @@ Find files with dangerously concentrated authorship:
 
 ```bash
 # Default: flag files where one author owns ≥ 80%
-node src/cli.js contributor .
+strata contributor .
 
 # Custom threshold: flag files at ≥ 60% ownership
-node src/cli.js contributor . --threshold 0.6
+strata contributor . --threshold 0.6
 
 # JSON output
-node src/cli.js contributor . --format json
+strata contributor . --format json
+
+# HTML report
+strata contributor . --format html
 ```
 
 **How it works:**
@@ -92,7 +99,15 @@ ownershipRatio = topAuthorLines / totalLines
 
 Files exceeding the threshold are flagged as knowledge-silo risks.
 
-### Output Colour Coding
+### Output Formats
+
+| Format | Flag | Description |
+|--------|------|-------------|
+| Terminal table | `--format table` (default) | Colour-coded tables with green/yellow/red risk indicators |
+| JSON | `--format json` | Machine-readable output, pipe into `jq` or other tools |
+| HTML | `--format html` | Self-contained dark-themed page with CSS bar charts |
+
+### Colour Coding
 
 | Colour | Hotspot Score | Ownership Ratio |
 |--------|--------------|-----------------|
@@ -117,6 +132,7 @@ src/
     contributor.js     # Bus-factor / contributor-risk analysis
   reporters/
     table.js           # Chalk + cli-table3 terminal reporter + JSON output
+    html.js            # Self-contained HTML report generator
 ```
 
 - **Collector** returns a uniform `commits[]` array.
@@ -138,8 +154,6 @@ node --test tests/metrics/hotspot.test.js
 node --test tests/metrics/contributor.test.js
 ```
 
-Current: **31 tests, all passing.**
-
 ## Tech Stack
 
 | Component | Technology |
@@ -156,7 +170,7 @@ Current: **31 tests, all passing.**
 | Code | Meaning |
 |------|---------|
 | `0` | Success |
-| `1` | User error (invalid path, not a Git repo) |
+| `1` | User error (invalid path, not a Git repo, bad flag value) |
 | `2` | Unexpected error |
 
 ## License
