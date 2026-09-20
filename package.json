@@ -1,0 +1,22 @@
+{
+  "name": "strata",
+  "version": "0.1.0",
+  "description": "A CLI tool for Git repository history analysis",
+  "type": "module",
+  "bin": {
+    "strata": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": ["git", "analysis", "hotspot", "cli"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0"
+  }
+}
